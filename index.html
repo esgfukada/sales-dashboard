@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>エリア別 売上ダッシュボード</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:#f0f2f5;color:#333;min-height:100vh;font-size:14px}
+
+/* ─── HEADER ─── */
+.header{background:linear-gradient(135deg,#1a1a2e,#0f3460);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 10px rgba(0,0,0,.3);position:sticky;top:0;z-index:100}
+.header-left h1{font-size:1.3rem;font-weight:700;letter-spacing:.5px}
+.header-left p{font-size:.75rem;opacity:.65;margin-top:2px}
+.header-right{display:flex;align-items:center;gap:10px}
+
+/* Month picker */
+.month-nav{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border-radius:8px;padding:5px 10px;border:1px solid rgba(255,255,255,.2)}
+.month-nav button{background:none;border:none;color:#fff;cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:4px;transition:background .15s}
+.month-nav button:hover{background:rgba(255,255,255,.2)}
+.month-label{font-size:.95rem;font-weight:700;color:#fff;min-width:90px;text-align:center}
+
+/* Edit toggle */
+.edit-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.edit-btn:hover{background:rgba(255,255,255,.25)}
+.edit-btn.active{background:#e67e22;border-color:#e67e22}
+
+/* Save status */
+.save-status{font-size:.72rem;color:rgba(255,255,255,.6);min-width:80px;text-align:right}
+.save-status.saved{color:#2ecc71}
+.save-status.unsaved{color:#f39c12}
+.save-status.error{color:#e74c3c;font-weight:bold}
+/* 警告バナー */
+#ls-warning{display:none;align-items:center;gap:10px;background:#e74c3c;color:#fff;padding:10px 20px;font-size:.85rem;border-bottom:2px solid #c0392b}
+#ls-warning a{color:#fff;font-weight:bold;text-decoration:underline;cursor:pointer}
+
+/* ─── TABS ─── */
+.tab-bar{background:#fff;padding:0 24px;display:flex;border-bottom:2px solid #e0e0e0;overflow-x:auto;box-shadow:0 2px 6px rgba(0,0,0,.05);position:sticky;top:56px;z-index:99}
+.tab{padding:12px 18px;cursor:pointer;font-size:.83rem;font-weight:600;color:#888;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap}
+.tab:hover{color:#0f3460;background:#f8f9ff}
+.tab.active{color:#0f3460;border-bottom-color:#0f3460;background:#f0f4ff}
+
+/* ─── CONTENT ─── */
+.content{padding:20px 24px}
+.section{display:none}
+.section.active{display:block}
+
+/* ─── KPI CARDS ─── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid #0f3460}
+.kpi-card.good{border-left-color:#27ae60}.kpi-card.warn{border-left-color:#f39c12}.kpi-card.bad{border-left-color:#e74c3c}
+.kpi-label{font-size:.68rem;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px}
+.kpi-value{font-size:1.6rem;font-weight:800;color:#1a1a2e;line-height:1}
+.kpi-unit{font-size:.8rem;font-weight:400;color:#888}
+.kpi-sub{font-size:.68rem;color:#bbb;margin-top:4px}
+
+/* ─── CARDS ─── */
+.card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:16px}
+.card-title{font-size:.88rem;font-weight:700;color:#333;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.card-title::before{content:'';display:inline-block;width:3px;height:14px;background:#0f3460;border-radius:2px}
+
+/* ─── TABLES ─── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{background:#1a1a2e;color:#fff;padding:8px 10px;text-align:right;font-weight:600;white-space:nowrap}
+thead th:first-child{text-align:left;border-radius:4px 0 0 0}
+thead th:last-child{border-radius:0 4px 0 0}
+tbody tr{border-bottom:1px solid #f0f0f0;transition:background .12s}
+tbody tr:hover{background:#f8f9ff}
+tbody tr.total-row{background:#e8f4ff;font-weight:700;border-top:2px solid #bdd7f0}
+tbody td{padding:8px 10px;text-align:right;vertical-align:middle}
+tbody td:first-child{text-align:left;font-weight:600}
+
+/* ─── BADGES ─── */
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:.72rem;font-weight:700;min-width:62px;text-align:center}
+.b-great{background:#d5f5e3;color:#1e8449}
+.b-good{background:#fef9e7;color:#d68910}
+.b-bad{background:#fde8e8;color:#c0392b}
+.b-none{background:#f0f0f0;color:#999}
+
+/* ─── PROGRESS BAR ─── */
+.prog-row{display:flex;align-items:center;gap:7px;justify-content:flex-end}
+.prog-track{background:#eee;border-radius:3px;height:6px;width:60px;overflow:hidden;flex-shrink:0}
+.prog-fill{height:100%;border-radius:3px}
+
+/* ─── AREA CARDS (overview) ─── */
+.area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:18px}
+.area-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-top:4px solid;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.area-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.12)}
+.area-card-name{font-size:.92rem;font-weight:700;margin-bottom:4px}
+.area-card-mgr{font-size:.72rem;color:#888;margin-bottom:10px}
+.area-card-vals{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px}
+.area-card-actual{font-size:1.35rem;font-weight:800}
+.area-card-hint{font-size:.7rem;color:#aaa;text-align:right}
+
+/* ─── BAR CHART (CSS) ─── */
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-lbl{font-size:.74rem;font-weight:600;width:76px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;background:#f0f0f0;border-radius:3px;height:20px;position:relative;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:5px}
+.bar-fill-txt{font-size:.68rem;font-weight:700;color:#fff;white-space:nowrap}
+.bar-pct-lbl{font-size:.72rem;font-weight:700;width:46px;text-align:left;flex-shrink:0}
+
+/* ─── WEEK BARS (CSS) ─── */
+.week-bars{display:flex;gap:8px;align-items:flex-end;padding:8px 0 0}
+.week-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.week-bar-fill{width:100%;border-radius:3px 3px 0 0}
+.week-col-lbl{font-size:.68rem;color:#888}
+.week-col-val{font-size:.72rem;font-weight:700;color:#555}
+
+/* ─── EDIT MODE ─── */
+.edit-mode tbody td.editable{padding:3px 6px}
+.edit-mode .num-input{width:68px;text-align:right;border:1px solid #0f3460;border-radius:4px;padding:3px 5px;font-size:.8rem;font-family:inherit;background:#fff9e6;outline:none}
+.edit-mode .num-input:focus{border-color:#e67e22;background:#fff3d0;box-shadow:0 0 0 2px rgba(230,126,34,.15)}
+.edit-hint{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:9px 14px;font-size:.78rem;color:#856404;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.edit-hint.hidden{display:none}
+/* ─── STORE ADD/REMOVE ─── */
+.remove-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:.9rem;padding:0 4px;line-height:1;border-radius:3px;transition:color .15s,background .15s;margin-left:4px}
+.remove-btn:hover{color:#e74c3c;background:#fde8e8}
+.add-store-row{padding:10px 0 4px}
+.add-store-wrap{display:flex;align-items:center;gap:8px}
+.add-store-input{border:1.5px dashed #0f3460;border-radius:6px;padding:5px 10px;font-size:.82rem;font-family:inherit;outline:none;width:140px;background:#f8f9ff;color:#333}
+.add-store-input:focus{border-color:#e67e22;background:#fff3d0}
+.add-store-btn{background:#0f3460;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}
+.add-store-btn:hover{background:#1a4a80}
+
+/* ─── NOTE BOX ─── */
+.note-box{background:#fff8e1;border-left:4px solid #f39c12;border-radius:6px;padding:10px 14px;font-size:.78rem;color:#7d6608;margin:10px 0}
+
+/* ─── COMMENT ─── */
+.comment-cell{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.comment-val{font-weight:600}
+.comment-txt{font-size:.68rem;color:#888;font-style:italic;max-width:110px;text-align:right;word-break:break-all;white-space:pre-wrap;line-height:1.3}
+.comment-input{width:110px;border:1px solid #ccc;border-radius:4px;padding:2px 5px;font-size:.72rem;font-family:inherit;resize:none;background:#f9f9f9;outline:none;line-height:1.3}
+.comment-input:focus{border-color:#0f3460;background:#fff}
+
+/* ─── SPARKLINE ─── */
+.spark{display:inline-flex;align-items:flex-end;gap:2px;height:20px;vertical-align:middle}
+.spark-b{width:5px;border-radius:1px 1px 0 0}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:768px){
+  /* ヘッダー */
+  .header{flex-direction:column;align-items:flex-start;padding:10px 14px;gap:8px}
+  .header-right{width:100%;justify-content:space-between;flex-wrap:wrap;gap:6px}
+  .header-left h1{font-size:1.05rem}
+  .header-left p{display:none}
+  .month-nav{padding:4px 8px}
+  .month-label{font-size:.88rem;min-width:78px}
+  .month-nav button{font-size:1.1rem;padding:4px 8px}
+  .edit-btn{padding:6px 12px;font-size:.78rem}
+  .save-status{font-size:.68rem;min-width:60px}
+
+  /* タブバー */
+  .tab-bar{top:94px;padding:0 8px}
+  .tab{padding:10px 12px;font-size:.78rem}
+
+  /* コンテンツ */
+  .content{padding:10px}
+
+  /* KPIカード */
+  .kpi-grid{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+  .kpi-card{padding:12px}
+  .kpi-value{font-size:1.3rem}
+
+  /* エリアカード */
+  .area-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .area-card{padding:12px}
+  .area-card-actual{font-size:1.1rem}
+
+  /* テーブル */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{font-size:.76rem;min-width:480px}
+  thead th{padding:6px 8px}
+  tbody td{padding:6px 8px}
+
+  /* バーチャート */
+  .bar-lbl{width:52px;font-size:.66rem}
+  .bar-pct-lbl{font-size:.66rem;width:38px}
+  .bar-track{height:18px}
+  .bar-fill-txt{font-size:.62rem}
+
+  /* 編集モード */
+  .edit-mode .num-input{width:60px;font-size:.82rem;padding:5px 4px}
+  .comment-input{width:88px;font-size:.72rem}
+  .add-store-input{width:120px}
+  .edit-hint{font-size:.74rem;padding:7px 10px}
+
+  /* カード */
+  .card{padding:12px;margin-bottom:10px}
+  .card-title{font-size:.83rem}
+}
+
+@media(max-width:480px){
+  /* ヘッダー さらに小さく */
+  .header-left h1{font-size:.95rem}
+  .month-label{min-width:70px;font-size:.82rem}
+
+  /* タブバー */
+  .tab{padding:9px 10px;font-size:.74rem}
+
+  /* KPIカード */
+  .kpi-grid{grid-template-columns:repeat(2,1fr);gap:6px}
+  .kpi-value{font-size:1.15rem}
+  .kpi-card{padding:10px}
+
+  /* エリアカード 1列 */
+  .area-grid{grid-template-columns:1fr}
+
+  /* テーブル */
+  table{font-size:.72rem;min-width:420px}
+
+  /* タッチ操作しやすいよう入力欄を大きく */
+  .edit-mode .num-input{width:56px;padding:6px 4px;font-size:.84rem}
+  .add-store-input{font-size:.84rem;padding:7px 10px}
+  .add-store-btn{padding:7px 12px;font-size:.8rem}
+  .month-nav button{padding:6px 10px}
+  .edit-btn{padding:7px 12px}
+}
+/* ─── チーム共有モーダル ─── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#fff;border-radius:16px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 10px 50px rgba(0,0,0,.3);position:relative}
+.modal-box h2{font-size:1.2rem;font-weight:800;margin-bottom:6px;color:#1a1a2e;text-align:center}
+.modal-box .modal-sub{font-size:.8rem;color:#888;text-align:center;margin-bottom:20px}
+.modal-choice{display:flex;gap:10px;margin-bottom:20px;flex-direction:column}
+.modal-choice-btn{border:2px solid #0f3460;border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
+.modal-choice-btn:hover{background:#f0f4ff;transform:translateY(-1px)}
+.modal-choice-btn.primary{background:#0f3460;border-color:#0f3460;color:#fff}
+.modal-choice-btn.primary:hover{background:#1a4a80}
+.modal-choice-btn-icon{font-size:1.6rem;display:block;margin-bottom:4px}
+.modal-choice-btn-title{font-weight:700;font-size:.9rem}
+.modal-choice-btn-desc{font-size:.74rem;opacity:.7;margin-top:3px}
+.modal-join-area{display:none;flex-direction:column;gap:10px}
+.modal-join-area.show{display:flex}
+.modal-code-input{border:2px solid #0f3460;border-radius:10px;padding:12px 16px;font-size:1.1rem;font-family:monospace;text-align:center;letter-spacing:3px;width:100%;outline:none;background:#f8f9ff}
+.modal-code-input:focus{border-color:#e67e22;background:#fff3d0}
+.modal-btns{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap}
+.modal-btn-primary{background:#0f3460;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:.85rem;font-weight:700;cursor:pointer;flex:1;transition:background .2s}
+.modal-btn-primary:hover{background:#1a4a80}
+.modal-btn-secondary{background:#eee;color:#555;border:none;border-radius:8px;padding:10px 16px;font-size:.82rem;cursor:pointer}
+.modal-btn-secondary:hover{background:#ddd}
+.modal-btn-danger{background:#e74c3c;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:.82rem;cursor:pointer}
+/* チームコード表示 */
+.team-code-display{background:#f0f8ff;border:2px solid #0f3460;border-radius:12px;padding:16px;text-align:center;margin:10px 0}
+.team-code-display .code{font-size:1.8rem;font-weight:900;letter-spacing:4px;color:#0f3460;font-family:monospace}
+.team-code-display .code-hint{font-size:.75rem;color:#888;margin-top:4px}
+/* 接続ステータス */
+.conn-status{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;padding:4px 10px;border-radius:20px;cursor:pointer;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;white-space:nowrap;transition:background .2s}
+.conn-status:hover{background:rgba(255,255,255,.22)}
+.conn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.conn-dot.green{background:#2ecc71;box-shadow:0 0 6px #2ecc71}
+.conn-dot.yellow{background:#f39c12;animation:blink .8s infinite}
+.conn-dot.red{background:#e74c3c}
+.conn-dot.gray{background:#999}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+
+
+
+<!-- チーム共有モーダル -->
+<div id="team-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:500px;max-height:90vh;overflow-y:auto">
+    <h2>☁️ チーム共有設定</h2>
+    <p class="modal-sub" id="modal-sub-text">どのファイルの開き方でも動作します</p>
+
+    <!-- ① 未接続：方法選択 -->
+    <div id="modal-step-choose">
+
+      <!-- JSONBin.io接続（メイン） -->
+      <div style="background:#f0f8ff;border:2px solid #0f3460;border-radius:12px;padding:16px;margin-bottom:12px">
+        <div style="font-weight:800;font-size:.95rem;color:#0f3460;margin-bottom:10px">🔗 JSONBin.ioで共有（推奨）</div>
+        <div style="font-size:.78rem;color:#555;line-height:1.8;margin-bottom:12px">
+          <strong>① </strong><a href="https://jsonbin.io/login" target="_blank" style="color:#e67e22;font-weight:700">jsonbin.io</a> で無料登録してログイン<br>
+          <strong>② </strong>ダッシュボード画面の「API Keys」→ <strong>X-MASTER-KEY</strong> をコピー<br>
+          <strong>③ </strong>最初の1人だけ↓に貼り付けて「新しく共有を始める」を押す<br>
+          <strong>④ </strong>表示される「共有コード」を他のメンバーにLINEやメールで送る<br>
+          <strong>⑤ </strong>2人目以降は共有コードを下の欄に貼り付けて「参加する」
+        </div>
+
+        <div style="font-size:.72rem;font-weight:700;color:#0f3460;margin-bottom:4px">はじめての人（共有を新規作成）</div>
+        <input id="jsonbin-key-input" type="text" placeholder="X-MASTER-KEY を貼り付け"
+          style="width:100%;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;font-size:.8rem;outline:none;margin-bottom:6px;font-family:monospace"
+          onkeydown="if(event.key==='Enter')startNewShare()">
+        <button class="modal-btn-primary" style="width:100%;margin-bottom:16px" onclick="startNewShare()">✨ 新しく共有を始める</button>
+
+        <div style="font-size:.72rem;font-weight:700;color:#0f3460;margin-bottom:4px">2人目以降（共有コードで参加）</div>
+        <input id="jsonbin-join-input" type="text" placeholder="共有コードを貼り付け"
+          style="width:100%;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;font-size:.8rem;outline:none;margin-bottom:6px;font-family:monospace"
+          onkeydown="if(event.key==='Enter')joinShare()">
+        <button class="modal-btn-primary" style="width:100%" onclick="joinShare()">🔗 参加する</button>
+
+        <div style="font-size:.72rem;color:#888;line-height:1.6;background:#fffbe6;border:1px solid #f0c040;border-radius:6px;padding:8px;margin-top:10px">
+          ⚠️ <strong>接続できない場合：</strong>APIキー・共有コードが正しくコピーされているか確認してください（前後の空白が入っていないか等）。
+        </div>
+      </div>
+
+      <!-- 手動共有（サブ） -->
+      <button class="modal-choice-btn" onclick="showManualShare()" style="width:100%">
+        <span class="modal-choice-btn-icon">📋</span>
+        <div class="modal-choice-btn-title">データを手動でコピー共有する</div>
+        <div class="modal-choice-btn-desc">設定不要・LINEやメールでデータを送受信</div>
+      </button>
+    </div>
+
+    <!-- ② 接続済み -->
+    <div id="modal-step-connected" style="display:none">
+      <div style="text-align:center;padding:10px 0 14px">
+        <div style="font-size:2rem">✅</div>
+        <div style="font-weight:800;color:#0f3460;font-size:1rem;margin-top:4px">クラウド同期中</div>
+        <div style="font-size:.75rem;color:#888;margin-top:4px">データは自動でJSONBin.ioに保存されます</div>
+      </div>
+      <div class="team-code-display">
+        <div class="code" id="share-code-display">-</div>
+        <div class="code-hint">この共有コードを他のメンバーに送ってください</div>
+      </div>
+      <div style="background:#f8f9ff;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#444;margin:12px 0;line-height:1.7">
+        <strong>他の端末で使う方法：</strong><br>
+        ① 同じHTMLファイルを開く<br>
+        ② 「☁️ 共有」→「共有コードで参加する」に貼り付け
+      </div>
+      <div class="modal-btns">
+        <button class="modal-btn-primary" onclick="copyShareCode()">📋 共有コードをコピー</button>
+        <button class="modal-btn-secondary" onclick="closeTeamModal()">閉じる</button>
+        <button class="modal-btn-danger" onclick="disconnectJsonbin()">🔌 切断</button>
+      </div>
+    </div>
+
+    <!-- ③ 手動共有 -->
+    <div id="modal-step-manual" style="display:none">
+      <div style="font-size:.8rem;color:#555;margin-bottom:10px;line-height:1.6">
+        データをコピーしてLINE・メール・メモで送れます。受け取った側は「貼り付けて読み込む」を使ってください。
+      </div>
+      <div class="modal-btns" style="margin-bottom:10px">
+        <button class="modal-btn-primary" onclick="exportDataToClipboard()">📤 データをコピー（送る側）</button>
+        <button class="modal-btn-secondary" onclick="showImportArea()">📥 データを貼り付け（受け取る側）</button>
+      </div>
+      <div id="import-area" style="display:none">
+        <textarea id="import-data-area" style="width:100%;height:90px;border:2px solid #e67e22;border-radius:8px;padding:8px;font-size:.72rem;font-family:monospace;resize:none" placeholder="受け取ったデータをここに貼り付けてください"></textarea>
+        <div class="modal-btns" style="margin-top:6px">
+          <button class="modal-btn-primary" onclick="importDataFromClipboard()">✅ 読み込む</button>
+          <button class="modal-btn-secondary" onclick="document.getElementById('import-area').style.display='none'">キャンセル</button>
+        </div>
+      </div>
+      <button class="modal-btn-secondary" style="width:100%;margin-top:10px" onclick="showChooseArea()">← 戻る</button>
+    </div>
+
+    <p id="modal-error-msg" style="color:#e74c3c;font-size:.78rem;text-align:center;margin-top:8px;display:none"></p>
+  </div>
+</div>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<div class="header">
+  <div class="header-left">
+    <h1>📊 エリア別 売上ダッシュボード</h1>
+    <p>各エリアの月次売上管理 ｜ 全6エリア 47店舗</p>
+  </div>
+  <div class="header-right">
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">◀</button>
+      <span class="month-label" id="month-label">2026年2月</span>
+      <button onclick="changeMonth(1)">▶</button>
+    </div>
+    <button class="edit-btn" id="edit-btn" onclick="toggleEdit()">✏️ 編集モード</button>
+    <button class="conn-status" id="conn-status" onclick="openTeamModal()" title="チーム共有設定">
+      <span class="conn-dot gray" id="conn-dot"></span>
+      <span id="conn-label">☁️ 共有</span>
+    </button>
+    <span class="save-status" id="save-status">● 自動保存</span>
+  </div>
+</div>
+
+<!-- ═══════════════════ TABS ═══════════════════ -->
+<div class="tab-bar" id="tab-bar">
+  <div class="tab active" onclick="showTab('overview')">🏠 全体概要</div>
+  <div class="tab" onclick="showTab('hiroshima')">広島・南岩国</div>
+  <div class="tab" onclick="showTab('bingo')">備後</div>
+  <div class="tab" onclick="showTab('hyogo')">兵庫</div>
+  <div class="tab" onclick="showTab('osaka')">大阪・京都</div>
+  <div class="tab" onclick="showTab('shikoku')">四国（松山）</div>
+  <div class="tab" onclick="showTab('kyushu')">九州（宇部）</div>
+</div>
+
+<!-- ═══════════════════ CONTENT ═══════════════════ -->
+<div class="content">
+  <div id="tab-overview" class="section active"></div>
+  <div id="tab-hiroshima" class="section"></div>
+  <div id="tab-bingo" class="section"></div>
+  <div id="tab-hyogo" class="section"></div>
+  <div id="tab-osaka" class="section"></div>
+  <div id="tab-shikoku" class="section"></div>
+  <div id="tab-kyushu" class="section"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STORE MASTER  ← エリア・店舗名はここで管理（localStorage で動的管理）
+// ═══════════════════════════════════════════════════════
+let STORE_MASTER = [
+  {
+    id:'hiroshima', name:'広島・南岩国', fullName:'広島エリア',
+    color:'#C0392B',
+    stores:['段原','庚午','八幡','舟入','東原','高陽','可部','藤三','西条','府中','南岩国']
+  },
+  {
+    id:'bingo', name:'備後', fullName:'備後エリア',
+    color:'#D35400',
+    stores:['南蔵王','三吉','高島','西新涯','駅家','西阿知','白壁','尾道','ＬＡＬＡ']
+  },
+  {
+    id:'hyogo', name:'兵庫', fullName:'兵庫エリア',
+    color:'#7D3C98',
+    stores:['加古川','別府','広畑','大久保','三木','神戸北','板宿','ピフレ','カットオン']
+  },
+  {
+    id:'osaka', name:'大阪・京都', fullName:'大阪・京都エリア',
+    color:'#1A5276',
+    stores:['四条','亀屋','桂','二条','寝屋川','高槻','茨木','守口','四條畷']
+  },
+  {
+    id:'shikoku', name:'四国（松山）', fullName:'松山エリア',
+    color:'#1E8449',
+    stores:['北島','東石井','富久','勅使','鴨川','今治','松縄','道後','丸亀','宇多津']
+  },
+  {
+    id:'kyushu', name:'九州（宇部）', fullName:'九州エリア',
+    color:'#117A65',
+    stores:['国分','小森野','鳥栖','小郡','宇部']
+  }
+];
+
+// ═══════════════════════════════════════════════════════
+// INITIAL DATA  ← 2026年2月のデータ（初期値）
+// ═══════════════════════════════════════════════════════
+const INITIAL_DATA = {
+  "2026-02": {
+    hiroshima:{
+      "段原":  {prev:461,   target:484.05,weeks:[83.7,86.7,91.3,105.6]},
+      "庚午":  {prev:256,   target:268.8, weeks:[51.8,46,53.8,54.2]},
+      "八幡":  {prev:174,   target:182.7, weeks:[38.3,53.3,47.9,45.9]},
+      "舟入":  {prev:194,   target:203.7, weeks:[39,41,43.4,55.8]},
+      "東原":  {prev:455,   target:477.75,weeks:[113.1,104.7,112.9,111.9]},
+      "高陽":  {prev:210,   target:220.5, weeks:[76.2,77.6,71.8,78.4]},
+      "可部":  {prev:153,   target:160.65,weeks:[26.4,28.1,10.7,34.3]},
+      "藤三":  {prev:116,   target:121.8, weeks:[39.6,52,44.6,36.7]},
+      "西条":  {prev:463,   target:486.15,weeks:[114.1,112.6,119.3,127.3]},
+      "府中":  {prev:112,   target:117.6, weeks:[36.1,34.7,37.4,36.8]},
+      "南岩国":{prev:193,   target:202.65,weeks:[38.2,41.7,41.2,42.7]},
+    },
+    bingo:{
+      "南蔵王":{prev:223.7,target:0,weeks:[68.5,79.9,81,41.3]},
+      "三吉":  {prev:132.4,target:0,weeks:[39,28.5,33.2,21.1]},
+      "高島":  {prev:147.7,target:0,weeks:[45.2,37.3,42.8,33.5]},
+      "西新涯":{prev:239.4,target:0,weeks:[52.5,32.3,40,23.7]},
+      "駅家":  {prev:225.2,target:0,weeks:[52.3,50,49.8,19.7]},
+      "西阿知":{prev:159.7,target:0,weeks:[66.1,61.7,64.2,29.9]},
+      "白壁":  {prev:211.2,target:0,weeks:[59.1,67.4,52.5,20.7]},
+      "尾道":  {prev:352.2,target:0,weeks:[81.3,81.3,89.8,46.7]},
+      "ＬＡＬＡ":{prev:126.1,target:0,weeks:[40.8,39.3,38.8,21.4]},
+    },
+    hyogo:{
+      "加古川":    {prev:164,target:172.2, weeks:[60.4,55.6,60,51]},
+      "別府":      {prev:175,target:183.75,weeks:[54.9,53.1,54,48]},
+      "広畑":      {prev:93, target:97.65, weeks:[26.1,31.6,32.9,37.4]},
+      "大久保":    {prev:161,target:169.05,weeks:[50.8,54.2,51,45]},
+      "三木":      {prev:147,target:154.35,weeks:[47.6,47.5,44.9,40]},
+      "神戸北":    {prev:153,target:160.65,weeks:[30.6,32.7,27.9,24.8]},
+      "板宿":      {prev:204,target:214.2, weeks:[56.3,56.7,50,48]},
+      "ピフレ":    {prev:106,target:111.3, weeks:[30.7,28.9,29.9,22.5]},
+      "カットオン":{prev:174,target:182.7, weeks:[0,0,0,0]},
+    },
+    osaka:{
+      "四条":   {prev:175,target:184,weeks:[37,30,34,27]},
+      "亀屋":   {prev:164,target:172,weeks:[42,34,34,38]},
+      "桂":     {prev:269,target:283,weeks:[66,68,57,71]},
+      "二条":   {prev:0,  target:150,weeks:[20,15,20,13]},
+      "寝屋川": {prev:234,target:246,weeks:[60,68,60,62]},
+      "高槻":   {prev:210,target:221,weeks:[48,44,41,36]},
+      "茨木":   {prev:212,target:223,weeks:[71,61,65,52]},
+      "守口":   {prev:55, target:57, weeks:[24,25,20,20]},
+      "四條畷": {prev:0,  target:150,weeks:[23,27,21,18]},
+    },
+    shikoku:{
+      "北島":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "東石井": {prev:0,target:0,weeks:[0,0,0,0]},
+      "富久":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "勅使":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "鴨川":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "今治":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "松縄":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "道後":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "丸亀":   {prev:0,target:0,weeks:[0,0,0,0]},
+      "宇多津": {prev:0,target:0,weeks:[0,0,0,0]},
+    },
+    kyushu:{
+      "国分":   {prev:226,target:248.6,weeks:[63,73,66,32]},
+      "小森野": {prev:105,target:115.5,weeks:[43,40,32,16]},
+      "鳥栖":   {prev:120,target:132,  weeks:[60,42,54,38]},
+      "小郡":   {prev:310,target:341,  weeks:[86,80,62,52]},
+      "宇部":   {prev:189,target:207.9,weeks:[75,71,69,33]},
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let currentYear = 2026;
+let currentMonth = 2;
+let editMode = false;
+let allData = {};
+
+// ─── localStorage helpers ───
+function lsGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+function lsSet(key,val){ try{ localStorage.setItem(key,val); return true; }catch(e){ return false; } }
+
+// ─── クラウド共有（JSONBin.io） ───
+// file://でも動作・JSONBin.ioのbinにデータを保存
+let jsonbinKey = null;   // X-MASTER-KEY
+let jsonbinId = null;    // bin ID
+let cloudReady = false;
+let isRemoteUpdate = false;
+let saveDebounceTimer = null;
+let pollTimer = null;
+const JSONBIN_API = 'https://api.jsonbin.io/v3/b';
+
+// ─── 接続ステータス表示 ───
+function updateConnUI(state){
+  const dot=document.getElementById('conn-dot'), lbl=document.getElementById('conn-label');
+  if(!dot||!lbl) return;
+  const map={
+    unconfigured:{cls:'gray',  text:'☁️ 共有'},
+    connecting:  {cls:'yellow',text:'接続中…'},
+    connected:   {cls:'green', text:'同期中'},
+    error:       {cls:'red',   text:'⚠ エラー'},
+  };
+  const s=map[state]||map.unconfigured;
+  dot.className='conn-dot '+s.cls; lbl.textContent=s.text;
+}
+
+// ─── モーダル操作 ───
+function openTeamModal(){
+  setModalError('');
+  if(cloudReady && jsonbinKey && jsonbinId){ showConnectedStep(); }
+  else { showChooseArea(); }
+  document.getElementById('team-modal').style.display='flex';
+}
+function closeTeamModal(){ document.getElementById('team-modal').style.display='none'; }
+function showChooseArea(){
+  document.getElementById('modal-step-choose').style.display='block';
+  document.getElementById('modal-step-connected').style.display='none';
+  document.getElementById('modal-step-manual').style.display='none';
+}
+function showConnectedStep(){
+  document.getElementById('modal-step-choose').style.display='none';
+  document.getElementById('modal-step-connected').style.display='block';
+  document.getElementById('modal-step-manual').style.display='none';
+  const el=document.getElementById('share-code-display');
+  if(el) el.textContent = (jsonbinKey&&jsonbinId) ? (jsonbinKey+'::'+jsonbinId) : '-';
+}
+function showManualShare(){
+  document.getElementById('modal-step-choose').style.display='none';
+  document.getElementById('modal-step-connected').style.display='none';
+  document.getElementById('modal-step-manual').style.display='block';
+}
+function showImportArea(){
+  document.getElementById('import-area').style.display='block';
+  setTimeout(()=>document.getElementById('import-data-area').focus(),100);
+}
+function setModalError(msg){
+  const el=document.getElementById('modal-error-msg');
+  if(!el) return; el.textContent=msg; el.style.display=msg?'block':'none';
+}
+// 共有コードをコピー
+function copyShareCode(){
+  const code=(jsonbinKey&&jsonbinId)?(jsonbinKey+'::'+jsonbinId):'';
+  if(!code) return;
+  navigator.clipboard.writeText(code).then(()=>{
+    const btn=event.target; btn.textContent='✓ コピーしました！'; setTimeout(()=>{btn.textContent='📋 共有コードをコピー';},2000);
+  }).catch(()=>alert('共有コード: '+code));
+}
+// 手動共有
+function exportDataToClipboard(){
+  const payload=JSON.stringify(buildFullSnapshot());
+  navigator.clipboard.writeText(payload).then(()=>{
+    const btn=event.target; btn.textContent='✅ コピー完了！LINEなどで送ってください';
+    setTimeout(()=>{btn.textContent='📤 データをコピー（送る側）';},3000);
+  }).catch(()=>{ alert('コピーできませんでした。テキストを手動で選択してコピーしてください。'); });
+}
+function importDataFromClipboard(){
+  const raw=(document.getElementById('import-data-area').value||'').trim();
+  if(!raw){ alert('データを貼り付けてください'); return; }
+  try{
+    applyRemoteData(JSON.parse(raw));
+    lsSet('salesDashboard_all',JSON.stringify(allData));
+    lsSet('salesDashboard_master',JSON.stringify(STORE_MASTER));
+    closeTeamModal();
+    alert('✅ データを読み込みました！');
+  } catch(e){ alert('データの形式が正しくありません。'); }
+}
+
+// ─── JSONBin.io 新規共有作成（最初の1人） ───
+function startNewShare(){
+  const key=(document.getElementById('jsonbin-key-input').value||'').trim();
+  if(!key){ setModalError('APIキーを入力してください'); return; }
+  updateConnUI('connecting');
+  setModalError('');
+  fetch(JSONBIN_API,{
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'X-Master-Key':key, 'X-Bin-Private':'true' },
+    body: JSON.stringify(buildFullSnapshot())
+  }).then(r=>{ if(!r.ok) throw new Error('create failed'); return r.json(); })
+    .then(data=>{
+      jsonbinKey=key; jsonbinId=data.metadata.id; cloudReady=true;
+      lsSet('salesDashboard_jsonbinKey',jsonbinKey);
+      lsSet('salesDashboard_jsonbinId',jsonbinId);
+      updateConnUI('connected');
+      showConnectedStep();
+      startPolling();
+    })
+    .catch(()=>{
+      updateConnUI('error');
+      setModalError('作成に失敗しました。APIキーが正しいか確認してください。');
+    });
+}
+
+// ─── JSONBin.io 共有コードで参加（2人目以降） ───
+function joinShare(){
+  const code=(document.getElementById('jsonbin-join-input').value||'').trim();
+  const parts=code.split('::');
+  if(parts.length!==2||!parts[0]||!parts[1]){ setModalError('共有コードの形式が正しくありません'); return; }
+  updateConnUI('connecting');
+  setModalError('');
+  jsonbinKey=parts[0]; jsonbinId=parts[1];
+  loadFromJsonbin((err, remote)=>{
+    if(err){
+      updateConnUI('error');
+      setModalError('接続失敗。共有コードが正しいか確認してください。');
+      jsonbinKey=null; jsonbinId=null; return;
+    }
+    cloudReady=true;
+    applyRemoteData(remote);
+    lsSet('salesDashboard_jsonbinKey',jsonbinKey);
+    lsSet('salesDashboard_jsonbinId',jsonbinId);
+    updateConnUI('connected');
+    showConnectedStep();
+    startPolling();
+  });
+}
+function disconnectJsonbin(){
+  if(!confirm('切断しますか？\nデータはこのブラウザに残ります。')) return;
+  clearInterval(pollTimer);
+  jsonbinKey=null; jsonbinId=null; cloudReady=false;
+  lsSet('salesDashboard_jsonbinKey',''); lsSet('salesDashboard_jsonbinId','');
+  updateConnUI('unconfigured');
+  closeTeamModal();
+}
+
+// ─── JSONBin.io 読み込み ───
+function loadFromJsonbin(callback){
+  if(!jsonbinKey||!jsonbinId){ callback(new Error('not configured')); return; }
+  fetch(`${JSONBIN_API}/${jsonbinId}/latest`,{ headers:{ 'X-Master-Key':jsonbinKey } })
+    .then(r=>{ if(!r.ok) throw new Error('load failed'); return r.json(); })
+    .then(data=> callback(null, data.record))
+    .catch(err=> callback(err));
+}
+
+// ─── JSONBin.io 保存（現在の月のみ読み込み→マージ→書き込み。他メンバーの他月編集を上書きしない） ───
+function pushToJsonbin(){
+  if(!jsonbinKey||!jsonbinId||isRemoteUpdate) return;
+  loadFromJsonbin((err, remote)=>{
+    if(err){ showSaveStatus('error'); return; }
+    const merged = (remote && typeof remote==='object') ? remote : {};
+    merged.master = STORE_MASTER;
+    merged.allData = merged.allData || {};
+    const mk=`${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+    merged.allData[mk] = allData[mk];
+    merged.lastMonth = mk;
+    fetch(`${JSONBIN_API}/${jsonbinId}`,{
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'X-Master-Key':jsonbinKey },
+      body: JSON.stringify(merged)
+    }).then(r=>{ if(!r.ok) throw new Error('save failed'); showSaveStatus('saved'); })
+      .catch(()=> showSaveStatus('error'));
+  });
+}
+
+// ─── ポーリング（30秒ごと）───
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer=setInterval(()=>{ loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote); }); },30000);
+  window.addEventListener('focus',()=>{ if(cloudReady) loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote); }); });
+}
+
+// ─── リモートデータ適用 ───
+// 新形式（JSONBin）：{ master:[...], lastMonth:"YYYY-MM", allData:{...} }（プレーンオブジェクト）
+// 旧形式（GAS/旧手動共有）：master・allDataが文字列化されている場合や、"data_YYYY-MM"キー形式にも対応
+function applyRemoteData(remote){
+  isRemoteUpdate=true;
+  if(remote){
+    if(remote.master){
+      try{ STORE_MASTER = typeof remote.master==='string' ? JSON.parse(remote.master) : remote.master; }catch(e){}
+    }
+    if(remote.allData){
+      try{ allData = typeof remote.allData==='string' ? JSON.parse(remote.allData) : remote.allData; }catch(e){}
+    } else {
+      Object.keys(remote).forEach(k=>{
+        if(k.indexOf('data_')===0){
+          const mk=k.slice(5);
+          try{ allData[mk]=JSON.parse(remote[k]); }catch(e){}
+        }
+      });
+    }
+    if(remote.lastMonth) restoreLastMonth(remote.lastMonth);
+  }
+  if(!allData['2026-02']) allData['2026-02']=JSON.parse(JSON.stringify(INITIAL_DATA['2026-02']));
+  updateMonthLabel(); rebuildAll(); showSaveStatus('saved');
+  isRemoteUpdate=false;
+}
+
+// ─── データ構築（現在のローカル状態の完全なスナップショット） ───
+// JSONBinへの新規共有作成・手動共有（コピー/貼り付け）で使用
+function buildFullSnapshot(){
+  return { master: STORE_MASTER, lastMonth:`${currentYear}-${String(currentMonth).padStart(2,'0')}`, allData: allData };
+}
+
+function restoreLastMonth(lastMonth){
+  const parts=(lastMonth||'').split('-');
+  if(parts.length===2){ const y=parseInt(parts[0]),m=parseInt(parts[1]); if(!isNaN(y)&&!isNaN(m)&&m>=1&&m<=12){ currentYear=y; currentMonth=m; } }
+}
+
+// ─── Save ───
+function storageKey(){ return `salesDashboard_${currentYear}-${String(currentMonth).padStart(2,'0')}`; }
+function saveData(){
+  const monthKey=`${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+  allData[monthKey]=allData[monthKey]||{};
+  lsSet('salesDashboard_all',JSON.stringify(allData));
+  lsSet('salesDashboard_lastMonth',monthKey);
+  clearTimeout(saveDebounceTimer);
+  if(cloudReady&&!isRemoteUpdate){ showSaveStatus('saving'); saveDebounceTimer=setTimeout(pushToJsonbin,700); }
+  else { showSaveStatus(lsSet('salesDashboard_all',JSON.stringify(allData))?'saved':'error'); }
+}
+function saveMaster(){
+  lsSet('salesDashboard_master',JSON.stringify(STORE_MASTER));
+  if(cloudReady&&!isRemoteUpdate){ clearTimeout(saveDebounceTimer); saveDebounceTimer=setTimeout(pushToJsonbin,700); }
+}
+
+// ─── Load（初回起動） ───
+function loadAllData(){
+  const rawMaster=lsGet('salesDashboard_master');
+  if(rawMaster){ try{ STORE_MASTER=JSON.parse(rawMaster); }catch(e){} }
+  const raw=lsGet('salesDashboard_all');
+  if(raw){ try{ allData=JSON.parse(raw); }catch(e){ allData={}; } }
+  if(!allData['2026-02']){ allData['2026-02']=JSON.parse(JSON.stringify(INITIAL_DATA['2026-02'])); lsSet('salesDashboard_all',JSON.stringify(allData)); }
+  const lm=lsGet('salesDashboard_lastMonth');
+  if(lm) restoreLastMonth(lm);
+  // 保存済みの共有情報があれば自動接続
+  const savedKey=lsGet('salesDashboard_jsonbinKey');
+  const savedId=lsGet('salesDashboard_jsonbinId');
+  if(savedKey&&savedId){
+    jsonbinKey=savedKey; jsonbinId=savedId; updateConnUI('connecting');
+    loadFromJsonbin((err,remote)=>{
+      if(!err){ cloudReady=true; if(remote) applyRemoteData(remote); updateConnUI('connected'); startPolling(); }
+      else { updateConnUI('error'); jsonbinKey=null; jsonbinId=null; }
+    });
+  }
+  else{ updateConnUI('unconfigured'); }
+}
+
+// ─── 店舗追加 ───
+function addStore(areaId){
+  const inputEl = document.getElementById('new-store-input-'+areaId);
+  if(!inputEl) return;
+  const storeName = inputEl.value.trim();
+  if(!storeName){ inputEl.focus(); return; }
+  const area = STORE_MASTER.find(a=>a.id===areaId);
+  if(!area) return;
+  if(area.stores.includes(storeName)){
+    alert('「'+storeName+'」はすでに登録されています。');
+    return;
+  }
+  area.stores.push(storeName);
+  // 全月のデータに初期エントリを追加
+  Object.keys(allData).forEach(mk=>{
+    if(!allData[mk][areaId]) allData[mk][areaId]={};
+    allData[mk][areaId][storeName]={prev:0,target:0,weeks:[0,0,0,0],comments:['','','','']};
+  });
+  saveMaster();
+  saveData();
+  rebuildAll();
+}
+
+// ─── 店舗削除 ───
+function removeStore(areaId, storeName){
+  if(!confirm('「'+storeName+'」を削除しますか？\n※ 全月のデータも削除されます。')){return;}
+  const area = STORE_MASTER.find(a=>a.id===areaId);
+  if(!area) return;
+  area.stores = area.stores.filter(s=>s!==storeName);
+  Object.keys(allData).forEach(mk=>{
+    if(allData[mk][areaId]) delete allData[mk][areaId][storeName];
+  });
+  saveMaster();
+  saveData();
+  rebuildAll();
+}
+function getMonthData(){
+  const k = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+  if(!allData[k]){
+    // Copy structure from master with zeros
+    allData[k] = {};
+    STORE_MASTER.forEach(area=>{
+      allData[k][area.id] = {};
+      area.stores.forEach(s=>{ allData[k][area.id][s]={prev:0,target:0,weeks:[0,0,0,0]}; });
+    });
+  }
+  return allData[k];
+}
+function getStoreData(areaId, storeName){
+  const md = getMonthData();
+  if(!md[areaId]) md[areaId]={};
+  if(!md[areaId][storeName]) md[areaId][storeName]={prev:0,target:0,weeks:[0,0,0,0],comments:['','','','']};
+  // 旧データにcommentsがない場合は追加
+  if(!md[areaId][storeName].comments) md[areaId][storeName].comments=['','','',''];
+  return md[areaId][storeName];
+}
+
+// ─── Save status display ───
+let saveTimer;
+function showSaveStatus(status){
+  const el = document.getElementById('save-status');
+  if(status==='saved'){ el.textContent='✓ 保存済み'; el.className='save-status saved'; }
+  else if(status==='saving'){ el.textContent='⏳ 保存中…'; el.className='save-status unsaved'; }
+  else if(status==='error'){ el.textContent='⚠ 保存失敗'; el.className='save-status error'; }
+  else { el.textContent='● 未保存'; el.className='save-status unsaved'; }
+}
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function n(v){ return parseFloat(v)||0; }
+function fmt(v){ return v==null?'-':n(v).toLocaleString('ja-JP',{minimumFractionDigits:0,maximumFractionDigits:1}); }
+function fmtPct(p){ return p==null?'-':(p*100).toFixed(1)+'%'; }
+function pctColor(p){
+  if(p==null) return '#aaa';
+  return p>=1?'#27ae60':p>=0.8?'#f39c12':'#e74c3c';
+}
+function pctBadge(p){
+  if(p==null||isNaN(p)) return '<span class="badge b-none">-</span>';
+  const cls=p>=1?'b-great':p>=0.8?'b-good':'b-bad';
+  return `<span class="badge ${cls}">${(p*100).toFixed(1)}%</span>`;
+}
+function calcActual(sd){ return sd.weeks.reduce((s,w)=>s+n(w),0); }
+function calcLanding(sd){
+  const weeks=sd.weeks.map(w=>n(w));
+  const filled=weeks.filter(w=>w>0).length;
+  if(filled===0) return null;
+  const actual=weeks.reduce((s,w)=>s+w,0);
+  return Math.round((actual/filled)*4*10)/10;
+}
+function landingColor(landing,target){
+  if(!landing||!target) return '#aaa';
+  const r=landing/target;
+  return r>=1?'#27ae60':r>=0.9?'#e67e22':'#e74c3c';
+}
+function autoTarget(prev){ return Math.round(n(prev)*1.05*10)/10; }
+function effectiveTarget(sd){
+  // 目標が手動設定されていればそれを使用、なければ昨年売上×1.05
+  return n(sd.target)>0 ? n(sd.target) : autoTarget(sd.prev);
+}
+function calcPct(sd){
+  const actual=calcActual(sd);
+  const base=effectiveTarget(sd);
+  return base>0?actual/base:null;
+}
+function areaStats(areaId){
+  const md=getMonthData(); const area=STORE_MASTER.find(a=>a.id===areaId);
+  let totalPrev=0,totalTarget=0,totalActual=0;
+  area.stores.forEach(s=>{
+    const sd=getStoreData(areaId,s);
+    totalPrev+=n(sd.prev);
+    totalTarget+=effectiveTarget(sd);
+    totalActual+=calcActual(sd);
+  });
+  const pct=totalTarget>0?totalActual/totalTarget:null;
+  return{totalPrev,totalTarget,totalActual,pct};
+}
+function weekLabel(i){ return `${i+1}週目`; }
+function spark(weeks,color){
+  const max=Math.max(...weeks.map(w=>n(w)),1);
+  return `<span class="spark">${weeks.map(w=>{
+    const h=Math.round(n(w)/max*18); const c=n(w)>0?color+'99':'#ddd';
+    return `<span class="spark-b" style="height:${h}px;background:${c}"></span>`;
+  }).join('')}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// MONTH NAVIGATION
+// ═══════════════════════════════════════════════════════
+function changeMonth(delta){
+  currentMonth+=delta;
+  if(currentMonth>12){currentMonth=1;currentYear++;}
+  if(currentMonth<1){currentMonth=12;currentYear--;}
+  const mk=`${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+  lsSet('salesDashboard_lastMonth', mk);
+  if(cloudReady && !isRemoteUpdate){
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer=setTimeout(pushToJsonbin, 700);
+  }
+  updateMonthLabel();
+  rebuildAll();
+}
+function updateMonthLabel(){
+  document.getElementById('month-label').textContent=`${currentYear}年${currentMonth}月`;
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIT MODE
+// ═══════════════════════════════════════════════════════
+function toggleEdit(){
+  editMode=!editMode;
+  const btn=document.getElementById('edit-btn');
+  btn.textContent=editMode?'👁 表示モード':'✏️ 編集モード';
+  btn.className='edit-btn'+(editMode?' active':'');
+  rebuildAll();
+}
+
+// Input helper used in edit mode
+function makeInput(areaId, storeName, field, value, weekIdx){
+  const id=weekIdx!=null
+    ?`inp_${areaId}_${storeName}_w${weekIdx}`
+    :`inp_${areaId}_${storeName}_${field}`;
+  const safeId=id.replace(/[^\w]/g,'_');
+  return `<input class="num-input" id="${safeId}"
+    value="${n(value)||''}"
+    onchange="updateValue('${areaId}','${storeName}','${field}',this.value,${weekIdx!=null?weekIdx:'null'})"
+    onfocus="this.select()"
+    type="number" step="0.1" min="0">`;
+}
+function updateValue(areaId,storeName,field,val,weekIdx){
+  const sd=getStoreData(areaId,storeName);
+  if(weekIdx!=null){
+    sd.weeks[weekIdx]=parseFloat(val)||0;
+  } else {
+    sd[field]=parseFloat(val)||0;
+    // 昨年売上が更新されたら目標を自動計算（×1.05）
+    if(field==='prev'){
+      sd.target=autoTarget(sd.prev);
+      // 画面上の目標表示セルを即時更新
+      const safeStore=storeName.replace(/[^\w]/g,'_');
+      const tgtEl=document.getElementById(`auto_target_${areaId}_${safeStore}`);
+      if(tgtEl) tgtEl.textContent=fmt(sd.target);
+    }
+  }
+  saveData();
+  refreshCurrentView();
+}
+function updateComment(areaId,storeName,weekIdx,val){
+  const sd=getStoreData(areaId,storeName);
+  sd.comments[weekIdx]=val;
+  saveData();
+}
+function refreshCurrentView(){
+  const active=document.querySelector('.section.active');
+  if(!active) return;
+  const tabId=active.id.replace('tab-','');
+  if(tabId==='overview') buildOverview();
+  else buildAreaDetail(tabId);
+}
+
+// ═══════════════════════════════════════════════════════
+// OVERVIEW
+// ═══════════════════════════════════════════════════════
+function buildOverview(){
+  let tPrev=0,tTarget=0,tActual=0,achieved=0;
+  STORE_MASTER.forEach(a=>{
+    const s=areaStats(a.id);
+    tPrev+=s.totalPrev; tTarget+=s.totalTarget; tActual+=s.totalActual;
+    if(s.pct&&s.pct>=1&&s.totalActual>0) achieved++;
+  });
+  const oPct=tTarget>0?tActual/tTarget:tPrev>0?tActual/tPrev:null;
+  const yoy=tPrev>0?tActual/tPrev:null;
+
+  const kpiHtml=`<div class="kpi-grid">
+    ${[
+      {l:'全エリア合計実績',v:fmt(tActual),u:'万円',s:'2026年'+currentMonth+'月',c:''},
+      {l:'合計目標',v:fmt(tTarget),u:'万円',s:'昨対+5%目標',c:''},
+      {l:'全体達成率',v:fmtPct(oPct),u:'',s:'目標比',c:oPct>=1?'good':oPct>=.8?'warn':'bad'},
+      {l:'昨年同月比',v:yoy?fmtPct(yoy):'-',u:'',s:'全エリア合算',c:''},
+      {l:'目標達成エリア',v:achieved+'/'+STORE_MASTER.filter(a=>areaStats(a.id).totalActual>0).length,u:'',s:'データあるエリア',c:achieved>=3?'good':'warn'},
+    ].map(k=>`<div class="kpi-card ${k.c}">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-value">${k.v}<span class="kpi-unit">${k.u}</span></div>
+      <div class="kpi-sub">${k.s}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // Area cards
+  const areaCardsHtml=`<div class="area-grid">${STORE_MASTER.map(a=>{
+    const s=areaStats(a.id); const hasData=s.totalActual>0;
+    const pct=s.pct; const pc=pctColor(pct);
+    return `<div class="area-card" style="border-top-color:${a.color}" onclick="showTab('${a.id}')">
+      <div class="area-card-name" style="color:${a.color}">${a.name}</div>
+      <div class="area-card-mgr">${a.stores.length}店舗</div>
+      ${hasData?`
+      <div class="area-card-vals">
+        <div>
+          <div class="area-card-actual" style="color:${pc}">${fmt(s.totalActual)}<span style="font-size:.75rem;color:#aaa;font-weight:400">万円</span></div>
+          <div style="font-size:.68rem;color:#aaa">目標 ${s.totalTarget>0?fmt(s.totalTarget):'未設定'}万円</div>
+        </div>
+        ${pctBadge(pct)}
+      </div>
+      <div class="prog-row">
+        <div class="prog-track" style="width:100%;flex:1"><div class="prog-fill" style="width:${Math.min((pct||0)*100,100)}%;background:${pc}"></div></div>
+      </div>`:`<div style="color:#bbb;font-size:.78rem;margin-top:8px">⚠️ データ未入力</div>`}
+      <div style="font-size:.68rem;color:#bbb;margin-top:8px;text-align:right">クリックで詳細 →</div>
+    </div>`;
+  }).join('')}</div>`;
+
+  // Summary table
+  const rows=STORE_MASTER.map(a=>{
+    const s=areaStats(a.id); const hasData=s.totalActual>0;
+    const weekSums=[0,1,2,3].map(i=>a.stores.reduce((sum,st)=>sum+n(getStoreData(a.id,st).weeks[i]),0));
+    return `<tr>
+      <td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${a.color};margin-right:5px"></span>${a.name}</td>
+      <td>${hasData?fmt(s.totalPrev):'-'}</td>
+      <td>${s.totalTarget>0?fmt(s.totalTarget):'<span style="color:#ccc">未設定</span>'}</td>
+      <td style="font-weight:700;color:${pctColor(s.pct)}">${hasData?fmt(s.totalActual):'-'}</td>
+      <td><div class="prog-row">${hasData?`<div class="prog-track"><div class="prog-fill" style="width:${Math.min((s.pct||0)*100,100)}%;background:${pctColor(s.pct)}"></div></div>${pctBadge(s.pct)}`:'<span class="badge b-none">未入力</span>'}</div></td>
+      <td style="text-align:center">${!hasData?'⚠️':s.pct>=1?'✅':s.pct>=.8?'🟡':'❗'}</td>
+      <td style="text-align:center">${spark(weekSums,a.color)}</td>
+    </tr>`;
+  }).join('');
+
+  // Weekly totals bar
+  const weekSumsAll=[0,1,2,3].map(i=>STORE_MASTER.reduce((sum,a)=>sum+a.stores.reduce((s,st)=>s+n(getStoreData(a.id,st).weeks[i]),0),0));
+  const maxWT=Math.max(...weekSumsAll,1);
+  const weekBarHtml=weekSumsAll.map((v,i)=>{
+    const h=Math.round(v/maxWT*100);
+    const colors=['#0f3460','#2980b9','#27ae60','#f39c12'];
+    return `<div class="week-col">
+      <div class="week-col-val">${fmt(v)}</div>
+      <div class="week-bar-fill" style="height:${h}px;background:${colors[i]};width:100%;min-height:4px;border-radius:3px 3px 0 0"></div>
+      <div class="week-col-lbl">${weekLabel(i)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('tab-overview').innerHTML=`
+    ${kpiHtml}${areaCardsHtml}
+    <div class="card">
+      <div class="card-title">エリア別 サマリー一覧</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th style="text-align:left">エリア</th><th>昨年売上</th><th>目標</th><th>実績</th><th>達成率</th><th>状況</th><th>週次推移</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">週次売上トレンド（全エリア合算・万円）</div>
+      <div style="display:flex;align-items:flex-end;gap:16px;height:130px;padding:10px 20px 0">${weekBarHtml}</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// AREA DETAIL
+// ═══════════════════════════════════════════════════════
+function buildAreaDetail(areaId){
+  const area=STORE_MASTER.find(a=>a.id===areaId);
+  const s=areaStats(areaId);
+  const hasData=s.totalActual>0;
+
+  // KPIs
+  const kpiHtml=`<div class="kpi-grid">
+    <div class="kpi-card ${s.pct>=1?'good':s.pct>=.8?'warn':hasData?'bad':''}">
+      <div class="kpi-label">実績合計</div>
+      <div class="kpi-value" style="color:${pctColor(s.pct)}">${fmt(s.totalActual)}<span class="kpi-unit">万円</span></div>
+      <div class="kpi-sub">${currentYear}年${currentMonth}月</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">目標</div>
+      <div class="kpi-value">${s.totalTarget>0?fmt(s.totalTarget):'-'}<span class="kpi-unit">万円</span></div>
+      <div class="kpi-sub">昨対+5%</div>
+    </div>
+    <div class="kpi-card ${s.pct>=1?'good':s.pct>=.8?'warn':hasData?'bad':''}">
+      <div class="kpi-label">達成率</div>
+      <div class="kpi-value">${s.pct?fmtPct(s.pct):'-'}</div>
+      <div class="kpi-sub">目標比</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">店舗数</div>
+      <div class="kpi-value">${area.stores.length}<span class="kpi-unit">店舗</span></div>
+      <div class="kpi-sub">${area.fullName}</div>
+    </div>
+  </div>`;
+
+  // Edit hint
+  const editHint=editMode?`<div class="edit-hint">
+    ✏️ <b>編集モード</b>：昨年売上を入力すると目標（×1.05）が自動で計算されます。週次売上（1〜4週目）を入力してください。変更は自動保存されます。
+  </div>`:'';
+
+  // Bar chart
+  let barRows='';
+  if(hasData){
+    const maxA=Math.max(...area.stores.map(st=>calcActual(getStoreData(areaId,st))),1);
+    barRows=area.stores.map(st=>{
+      const sd=getStoreData(areaId,st);
+      const act=calcActual(sd); const pct=calcPct(sd);
+      const w=Math.min(act/maxA*100,100); const c=pctColor(pct);
+      return `<div class="bar-row">
+        <span class="bar-lbl" title="${st}">${st}</span>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${w}%;background:${c}80">
+            <span class="bar-fill-txt" style="color:${c}">${fmt(act)}</span>
+          </div>
+        </div>
+        <span class="bar-pct-lbl" style="color:${c}">${pct!=null?(pct*100).toFixed(0)+'%':'-'}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Weekly total bars
+  const weekSums=[0,1,2,3].map(i=>area.stores.reduce((sum,st)=>sum+n(getStoreData(areaId,st).weeks[i]),0));
+  const maxW=Math.max(...weekSums,1);
+  const weekBarHtml=weekSums.map((v,i)=>{
+    const h=Math.round(v/maxW*90);
+    return `<div class="week-col">
+      <div class="week-col-val" style="color:${area.color}">${fmt(v)}</div>
+      <div class="week-bar-fill" style="height:${h}px;background:${area.color}bb;width:100%;min-height:4px;border-radius:3px 3px 0 0"></div>
+      <div class="week-col-lbl">${weekLabel(i)}</div>
+    </div>`;
+  }).join('');
+
+  // Store table
+  const tblClass=editMode?'edit-mode':'';
+  const storeRows=area.stores.map(st=>{
+    const sd=getStoreData(areaId,st);
+    const act=calcActual(sd); const pct=calcPct(sd);
+    const pc=pctColor(pct);
+    const status=act>0?(pct>=1?'✅ 達成':pct>=.8?'🟡 惜しい':'❗ 要注意'):'⚠️ 未入力';
+
+    const safeStore=st.replace(/[^\w]/g,'_');
+    const dispTarget=effectiveTarget(sd);
+    const prevCell=editMode?`<td class="editable">${makeInput(areaId,st,'prev',sd.prev)}</td>`:
+      `<td>${fmt(sd.prev)}</td>`;
+    // 目標は昨年売上×1.05で自動計算（読み取り専用）
+    const targetCell=editMode
+      ?`<td style="text-align:right;color:#0f3460;font-weight:600;padding:3px 10px">
+          <span id="auto_target_${areaId}_${safeStore}">${dispTarget>0?fmt(dispTarget):'-'}</span>
+          <div style="font-size:.6rem;color:#aaa;margin-top:1px">自動（×1.05）</div>
+        </td>`
+      :`<td>${dispTarget>0?fmt(dispTarget):'<span style="color:#ccc">-</span>'}</td>`;
+    const weekCells=sd.weeks.map((w,i)=>{
+      const safeS=st.replace(/[^\w]/g,'_');
+      const cm=(sd.comments&&sd.comments[i])||'';
+      const escapedCm=cm.replace(/'/g,"&#39;").replace(/"/g,'&quot;').replace(/\n/g,'&#10;');
+      if(editMode){
+        return `<td class="editable" style="vertical-align:top;padding:4px 6px">
+          ${makeInput(areaId,st,'weeks',w,i)}
+          <textarea class="comment-input" rows="2"
+            placeholder="メモ..."
+            onchange="updateComment('${areaId}','${st}',${i},this.value)"
+          >${escapedCm}</textarea>
+        </td>`;
+      } else {
+        return `<td>
+          <div class="comment-cell">
+            <span class="comment-val">${n(w)>0?fmt(w):'-'}</span>
+            ${cm?`<span class="comment-txt">${cm.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</span>`:''}
+          </div>
+        </td>`;
+      }
+    }).join('');
+
+    const landing=calcLanding(sd);
+    const lc=landingColor(landing,dispTarget);
+    const landingPct=landing&&dispTarget>0?landing/dispTarget:null;
+    const landingCell=landing!=null
+      ?`<td style="font-weight:700;color:${lc};text-align:right">
+          ${fmt(landing)}
+          <div style="font-size:.65rem;color:${lc};opacity:.85">${landingPct!=null?(landingPct>=1?'✅達成見込':'⚠️'+(Math.round(landingPct*100))+'%'):''}
+          </div>
+        </td>`
+      :`<td style="color:#ccc;text-align:right">-</td>`;
+
+    const removeBtn=editMode
+      ?`<button class="remove-btn" onclick="removeStore('${areaId}','${st}')" title="この店舗を削除">✕</button>`
+      :'';
+    return `<tr>
+      <td>${st}${removeBtn}</td>
+      ${prevCell}${targetCell}
+      <td style="font-weight:700;color:${pc}">${fmt(act)}</td>
+      <td><div class="prog-row">
+        <div class="prog-track"><div class="prog-fill" style="width:${Math.min((pct||0)*100,100)}%;background:${pc}"></div></div>
+        ${pctBadge(pct)}
+      </div></td>
+      ${landingCell}
+      ${weekCells}
+      <td style="text-align:center">${spark(sd.weeks,area.color)}</td>
+    </tr>`;
+  }).join('');
+
+  // Total row
+  const weekSumCells=[0,1,2,3].map(i=>`<td>${fmt(weekSums[i])}</td>`).join('');
+  // エリア合計の着地予想
+  const areaLandings=area.stores.map(st=>calcLanding(getStoreData(areaId,st))).filter(v=>v!=null);
+  const totalLanding=areaLandings.length>0?Math.round(areaLandings.reduce((a,b)=>a+b,0)*10)/10:null;
+  const tlc=landingColor(totalLanding,s.totalTarget);
+  const totalLandingCell=totalLanding!=null
+    ?`<td style="font-weight:700;color:${tlc};text-align:right">${fmt(totalLanding)}</td>`
+    :`<td style="color:#ccc;text-align:right">-</td>`;
+  const totalRow=`<tr class="total-row">
+    <td>📋 合計</td>
+    <td>${fmt(s.totalPrev)}</td>
+    <td>${s.totalTarget>0?fmt(s.totalTarget):'-'}</td>
+    <td style="color:${pctColor(s.pct)}">${fmt(s.totalActual)}</td>
+    <td>${pctBadge(s.pct)}</td>
+    ${totalLandingCell}
+    ${weekSumCells}
+    <td>${spark(weekSums,area.color)}</td>
+  </tr>`;
+
+  const noDataNote=!hasData?`<div class="note-box">⚠️ このエリアはまだデータが入力されていません。「✏️ 編集モード」から入力してください。</div>`:'';
+
+  document.getElementById('tab-'+areaId).innerHTML=`
+    ${kpiHtml}
+    ${editHint}
+    ${noDataNote}
+    ${hasData?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">店舗別 実績（万円）</div>
+        <div class="bar-chart">${barRows}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">週次売上トレンド（万円）</div>
+        <div style="display:flex;align-items:flex-end;gap:12px;height:120px;padding:8px 10px 0">${weekBarHtml}</div>
+      </div>
+    </div>`:''}
+    <div class="card ${tblClass}">
+      <div class="card-title">${area.fullName} 店舗別実績一覧</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th style="text-align:left">店舗名</th>
+          <th>昨年売上</th><th>目標</th><th>実績</th><th>達成率</th>
+          <th style="color:#e67e22;min-width:72px">着地予想</th>
+          <th style="min-width:90px">${weekLabel(0)}</th><th style="min-width:90px">${weekLabel(1)}</th><th style="min-width:90px">${weekLabel(2)}</th><th style="min-width:90px">${weekLabel(3)}</th>
+          <th>推移</th>
+        </tr></thead>
+        <tbody>${storeRows}${totalRow}</tbody>
+      </table></div>
+      <div style="font-size:.68rem;color:#bbb;margin-top:8px">※ 単位：万円（税込） ｜ 実績 = 週次合計</div>
+      ${editMode?`<div class="add-store-row">
+        <div class="add-store-wrap">
+          <input id="new-store-input-${areaId}" class="add-store-input" type="text" placeholder="新しい店舗名を入力"
+            onkeydown="if(event.key==='Enter')addStore('${areaId}')">
+          <button class="add-store-btn" onclick="addStore('${areaId}')">＋ 店舗を追加</button>
+        </div>
+      </div>`:''}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// TAB SWITCH
+// ═══════════════════════════════════════════════════════
+const TAB_IDS=['overview','hiroshima','bingo','hyogo','osaka','shikoku','kyushu'];
+function showTab(tabId){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  TAB_IDS.indexOf(tabId);
+  document.querySelectorAll('.tab')[TAB_IDS.indexOf(tabId)].classList.add('active');
+  const el=document.getElementById('tab-'+tabId);
+  el.classList.add('active');
+  if(tabId==='overview') buildOverview();
+  else buildAreaDetail(tabId);
+}
+
+function rebuildAll(){
+  const active=document.querySelector('.section.active');
+  if(!active) return;
+  const tabId=active.id.replace('tab-','');
+  if(tabId==='overview') buildOverview();
+  else buildAreaDetail(tabId);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+loadAllData();
+updateMonthLabel();
+buildOverview();
+
+// タブバーのsticky位置をヘッダー高さに合わせて動的設定
+function adjustTabBarTop(){
+  const header = document.querySelector('.header');
+  const tabBar = document.getElementById('tab-bar');
+  if(header && tabBar){
+    tabBar.style.top = header.offsetHeight + 'px';
+  }
+}
+adjustTabBarTop();
+window.addEventListener('resize', adjustTabBarTop);
+
+</script>
+</body>
+</html>
