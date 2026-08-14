@@ -688,32 +688,46 @@ function pushToJsonbin(){
 }
 
 // ─── ポーリング（30秒ごと）───
+// isPoll:true を渡し、定期同期時は「今見ている月」を勝手に切り替えたり
+// 編集中のデータを上書きしたりしないようにする
 function startPolling(){
   clearInterval(pollTimer);
-  pollTimer=setInterval(()=>{ loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote); }); },30000);
-  window.addEventListener('focus',()=>{ if(cloudReady) loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote); }); });
+  pollTimer=setInterval(()=>{ loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote,{isPoll:true}); }); },30000);
+  window.addEventListener('focus',()=>{ if(cloudReady) loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote,{isPoll:true}); }); });
 }
 
 // ─── リモートデータ適用 ───
 // 新形式（JSONBin）：{ master:[...], lastMonth:"YYYY-MM", allData:{...} }（プレーンオブジェクト）
 // 旧形式（GAS/旧手動共有）：master・allDataが文字列化されている場合や、"data_YYYY-MM"キー形式にも対応
-function applyRemoteData(remote){
+// opts.isPoll=true（定期同期・フォーカス復帰時）は、今表示中の月のデータと表示月そのものは保護する
+function applyRemoteData(remote, opts){
+  opts = opts || {};
   isRemoteUpdate=true;
   if(remote){
     if(remote.master){
       try{ STORE_MASTER = typeof remote.master==='string' ? JSON.parse(remote.master) : remote.master; }catch(e){}
     }
     if(remote.allData){
-      try{ allData = typeof remote.allData==='string' ? JSON.parse(remote.allData) : remote.allData; }catch(e){}
+      try{
+        const incoming = typeof remote.allData==='string' ? JSON.parse(remote.allData) : remote.allData;
+        if(opts.isPoll){
+          const activeKey=`${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+          Object.keys(incoming).forEach(mk=>{ if(mk!==activeKey) allData[mk]=incoming[mk]; });
+        } else {
+          allData = incoming;
+        }
+      }catch(e){}
     } else {
       Object.keys(remote).forEach(k=>{
         if(k.indexOf('data_')===0){
           const mk=k.slice(5);
+          if(opts.isPoll && mk===`${currentYear}-${String(currentMonth).padStart(2,'0')}`) return;
           try{ allData[mk]=JSON.parse(remote[k]); }catch(e){}
         }
       });
     }
-    if(remote.lastMonth) restoreLastMonth(remote.lastMonth);
+    // 定期同期時は表示中の月を勝手に切り替えない（初回接続・共有コード参加時のみ切り替える）
+    if(!opts.isPoll && remote.lastMonth) restoreLastMonth(remote.lastMonth);
   }
   if(!allData['2026-02']) allData['2026-02']=JSON.parse(JSON.stringify(INITIAL_DATA['2026-02']));
   updateMonthLabel(); rebuildAll(); showSaveStatus('saved');
