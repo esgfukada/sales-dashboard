@@ -543,7 +543,9 @@ function updateConnUI(state){
 // ─── モーダル操作 ───
 function openTeamModal(){
   setModalError('');
-  if(cloudReady && jsonbinKey && jsonbinId){ showConnectedStep(); }
+  // cloudReadyが一時的にfalse（通信エラー中など）でも、キー自体は保持されていれば
+  // 「接続済み」画面を見せる（APIキーの入力をやり直させない）
+  if(jsonbinKey && jsonbinId){ showConnectedStep(); }
   else { showChooseArea(); }
   document.getElementById('team-modal').style.display='flex';
 }
@@ -687,13 +689,30 @@ function pushToJsonbin(){
   });
 }
 
-// ─── ポーリング（30秒ごと）───
-// isPoll:true を渡し、定期同期時は「今見ている月」を勝手に切り替えたり
-// 編集中のデータを上書きしたりしないようにする
+// ─── ポーリング（3分ごと）───
+// JSONBin.io無料プランは月10,000リクエストまでのため、頻繁すぎるポーリングは
+// すぐに上限超過エラーになる。間隔を延ばし、タブが非表示の間は止めることで
+// リクエスト数を抑える。isPoll:trueを渡し、定期同期時は「今見ている月」を
+// 勝手に切り替えたり編集中のデータを上書きしたりしないようにする。
+// エラーでも接続情報（jsonbinKey/jsonbinId）は保持し、次回成功時に自動復帰する。
+const POLL_INTERVAL_MS = 180000;
+function pollOnce(){
+  if(!jsonbinKey||!jsonbinId) return;
+  if(document.hidden) return; // タブが背面のときはリクエストしない
+  loadFromJsonbin((err,remote)=>{
+    if(!err){
+      cloudReady=true; updateConnUI('connected');
+      if(remote) applyRemoteData(remote,{isPoll:true});
+    } else {
+      cloudReady=false; updateConnUI('error');
+    }
+  });
+}
 function startPolling(){
   clearInterval(pollTimer);
-  pollTimer=setInterval(()=>{ loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote,{isPoll:true}); }); },30000);
-  window.addEventListener('focus',()=>{ if(cloudReady) loadFromJsonbin((err,remote)=>{ if(!err&&remote) applyRemoteData(remote,{isPoll:true}); }); });
+  pollTimer=setInterval(pollOnce, POLL_INTERVAL_MS);
+  window.addEventListener('focus', pollOnce);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollOnce(); });
 }
 
 // ─── リモートデータ適用 ───
@@ -776,8 +795,12 @@ function loadAllData(){
   if(savedKey&&savedId){
     jsonbinKey=savedKey; jsonbinId=savedId; updateConnUI('connecting');
     loadFromJsonbin((err,remote)=>{
-      if(!err){ cloudReady=true; if(remote) applyRemoteData(remote); updateConnUI('connected'); startPolling(); }
-      else { updateConnUI('error'); jsonbinKey=null; jsonbinId=null; }
+      // 失敗してもjsonbinKey/jsonbinIdは保持する（一時的な通信エラー・レート制限などで
+      // 接続情報そのものを失ったように見せない）。ポーリングは開始しておき、
+      // 次回の自動同期が成功すれば自動的に「同期中」に復帰する。
+      if(!err){ cloudReady=true; if(remote) applyRemoteData(remote); updateConnUI('connected'); }
+      else { updateConnUI('error'); }
+      startPolling();
     });
   }
   else{ updateConnUI('unconfigured'); }
