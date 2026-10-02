@@ -368,6 +368,9 @@ tbody td:first-child{text-align:left;font-weight:600}
       <span class="conn-dot gray" id="conn-dot"></span>
       <span id="conn-label">☁️ 共有</span>
     </button>
+    <button class="conn-status" id="sync-btn" onclick="manualSyncClick()" title="他の端末の最新データを今すぐ取得します">
+      <span id="sync-label">🔄 今すぐ同期</span>
+    </button>
     <span class="save-status" id="save-status">● 自動保存</span>
   </div>
 </div>
@@ -689,16 +692,20 @@ function pushToJsonbin(){
   });
 }
 
-// ─── ポーリング（3分ごと）───
-// JSONBin.io無料プランは月10,000リクエストまでのため、頻繁すぎるポーリングは
-// すぐに上限超過エラーになる。間隔を延ばし、タブが非表示の間は止めることで
-// リクエスト数を抑える。isPoll:trueを渡し、定期同期時は「今見ている月」を
-// 勝手に切り替えたり編集中のデータを上書きしたりしないようにする。
+// ─── 同期（定期ポーリングは廃止）───
+// JSONBin.io無料プランは月10,000リクエストまでしかなく、一定間隔での自動ポーリングは
+// ブラウザを開きっぱなしにするだけで簡単に使い切ってしまう（実際に発生した）。
+// そのため常時ポーリングはやめ、「ページを開いた時」「保存した時」「タブに戻った時
+// （最短2分間隔）」「手動で更新ボタンを押した時」の必要なタイミングだけ通信する。
+// isPoll:trueを渡し、同期時は「今見ている月」を勝手に切り替えたり
+// 編集中のデータを上書きしたりしないようにする。
 // エラーでも接続情報（jsonbinKey/jsonbinId）は保持し、次回成功時に自動復帰する。
-const POLL_INTERVAL_MS = 180000;
-function pollOnce(){
+const MIN_SYNC_GAP_MS = 120000; // タブ復帰時の自動同期は最短2分間隔に制限（手動更新は常に実行）
+let lastSyncAt = 0;
+function pollOnce(force){
   if(!jsonbinKey||!jsonbinId) return;
-  if(document.hidden) return; // タブが背面のときはリクエストしない
+  if(!force && Date.now()-lastSyncAt<MIN_SYNC_GAP_MS) return;
+  lastSyncAt = Date.now();
   loadFromJsonbin((err,remote)=>{
     if(!err){
       cloudReady=true; updateConnUI('connected');
@@ -708,11 +715,30 @@ function pollOnce(){
     }
   });
 }
+function manualSync(){ pollOnce(true); }
+// 手動同期ボタン：クリック中は「更新中…」を表示し、連打による無駄なリクエストを防ぐ
+function manualSyncClick(){
+  if(!jsonbinKey||!jsonbinId){ openTeamModal(); return; }
+  const btn=document.getElementById('sync-btn'), lbl=document.getElementById('sync-label');
+  if(btn.disabled) return;
+  btn.disabled=true; lbl.textContent='⏳ 更新中…';
+  loadFromJsonbin((err,remote)=>{
+    if(!err){
+      cloudReady=true; updateConnUI('connected');
+      if(remote) applyRemoteData(remote,{isPoll:true});
+      lbl.textContent='✓ 更新しました';
+    } else {
+      cloudReady=false; updateConnUI('error');
+      lbl.textContent='⚠ 同期失敗';
+    }
+    lastSyncAt=Date.now();
+    setTimeout(()=>{ lbl.textContent='🔄 今すぐ同期'; btn.disabled=false; },1500);
+  });
+}
 function startPolling(){
-  clearInterval(pollTimer);
-  pollTimer=setInterval(pollOnce, POLL_INTERVAL_MS);
-  window.addEventListener('focus', pollOnce);
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollOnce(); });
+  clearInterval(pollTimer); // 自動ポーリングは行わない（互換のため呼び出し元はそのまま残す）
+  window.addEventListener('focus', ()=>pollOnce(false));
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollOnce(false); });
 }
 
 // ─── リモートデータ適用 ───
