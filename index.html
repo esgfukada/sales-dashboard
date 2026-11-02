@@ -269,31 +269,20 @@ tbody td:first-child{text-align:left;font-weight:600}
     <!-- ① 未接続：方法選択 -->
     <div id="modal-step-choose">
 
-      <!-- JSONBin.io接続（メイン） -->
+      <!-- クラウド接続（AWS） -->
       <div style="background:#f0f8ff;border:2px solid #0f3460;border-radius:12px;padding:16px;margin-bottom:12px">
-        <div style="font-weight:800;font-size:.95rem;color:#0f3460;margin-bottom:10px">🔗 JSONBin.ioで共有（推奨）</div>
+        <div style="font-weight:800;font-size:.95rem;color:#0f3460;margin-bottom:10px">☁️ クラウドで共有（AWS）</div>
         <div style="font-size:.78rem;color:#555;line-height:1.8;margin-bottom:12px">
-          <strong>① </strong><a href="https://jsonbin.io/login" target="_blank" style="color:#e67e22;font-weight:700">jsonbin.io</a> で無料登録してログイン<br>
-          <strong>② </strong>ダッシュボード画面の「API Keys」→ <strong>X-MASTER-KEY</strong> をコピー<br>
-          <strong>③ </strong>最初の1人だけ↓に貼り付けて「新しく共有を始める」を押す<br>
-          <strong>④ </strong>表示される「共有コード」を他のメンバーにLINEやメールで送る<br>
-          <strong>⑤ </strong>2人目以降は共有コードを下の欄に貼り付けて「参加する」
+          管理者から受け取った「共有コード」を貼り付けて「接続する」を押してください。<br>
+          どの端末でも同じコードを使えば、同じデータが見られます。
         </div>
-
-        <div style="font-size:.72rem;font-weight:700;color:#0f3460;margin-bottom:4px">はじめての人（共有を新規作成）</div>
-        <input id="jsonbin-key-input" type="text" placeholder="X-MASTER-KEY を貼り付け"
-          style="width:100%;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;font-size:.8rem;outline:none;margin-bottom:6px;font-family:monospace"
-          onkeydown="if(event.key==='Enter')startNewShare()">
-        <button class="modal-btn-primary" style="width:100%;margin-bottom:16px" onclick="startNewShare()">✨ 新しく共有を始める</button>
-
-        <div style="font-size:.72rem;font-weight:700;color:#0f3460;margin-bottom:4px">2人目以降（共有コードで参加）</div>
-        <input id="jsonbin-join-input" type="text" placeholder="共有コードを貼り付け"
+        <input id="share-code-input" type="text" placeholder="共有コードを貼り付け"
           style="width:100%;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;font-size:.8rem;outline:none;margin-bottom:6px;font-family:monospace"
           onkeydown="if(event.key==='Enter')joinShare()">
-        <button class="modal-btn-primary" style="width:100%" onclick="joinShare()">🔗 参加する</button>
+        <button class="modal-btn-primary" style="width:100%" onclick="joinShare()">🔗 接続する</button>
 
         <div style="font-size:.72rem;color:#888;line-height:1.6;background:#fffbe6;border:1px solid #f0c040;border-radius:6px;padding:8px;margin-top:10px">
-          ⚠️ <strong>接続できない場合：</strong>APIキー・共有コードが正しくコピーされているか確認してください（前後の空白が入っていないか等）。
+          ⚠️ <strong>接続できない場合：</strong>共有コードが正しくコピーされているか確認してください（前後の空白が入っていないか等）。
         </div>
       </div>
 
@@ -310,21 +299,21 @@ tbody td:first-child{text-align:left;font-weight:600}
       <div style="text-align:center;padding:10px 0 14px">
         <div style="font-size:2rem">✅</div>
         <div style="font-weight:800;color:#0f3460;font-size:1rem;margin-top:4px">クラウド同期中</div>
-        <div style="font-size:.75rem;color:#888;margin-top:4px">データは自動でJSONBin.ioに保存されます</div>
+        <div style="font-size:.75rem;color:#888;margin-top:4px">データは自動でクラウド（AWS）に保存されます</div>
       </div>
       <div class="team-code-display">
-        <div class="code" id="share-code-display">-</div>
-        <div class="code-hint">この共有コードを他のメンバーに送ってください</div>
+        <div class="code" id="share-code-display" style="font-size:1.1rem;letter-spacing:1px">-</div>
+        <div class="code-hint">共有コードは「コピー」ボタンで取得できます（他人に見せないでください）</div>
       </div>
       <div style="background:#f8f9ff;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#444;margin:12px 0;line-height:1.7">
         <strong>他の端末で使う方法：</strong><br>
         ① 同じHTMLファイルを開く<br>
-        ② 「☁️ 共有」→「共有コードで参加する」に貼り付け
+        ② 「☁️ 共有」→ 共有コードを貼り付けて「接続する」
       </div>
       <div class="modal-btns">
         <button class="modal-btn-primary" onclick="copyShareCode()">📋 共有コードをコピー</button>
         <button class="modal-btn-secondary" onclick="closeTeamModal()">閉じる</button>
-        <button class="modal-btn-danger" onclick="disconnectJsonbin()">🔌 切断</button>
+        <button class="modal-btn-danger" onclick="disconnectCloud()">🔌 切断</button>
       </div>
     </div>
 
@@ -519,15 +508,14 @@ let allData = {};
 function lsGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
 function lsSet(key,val){ try{ localStorage.setItem(key,val); return true; }catch(e){ return false; } }
 
-// ─── クラウド共有（JSONBin.io） ───
-// file://でも動作・JSONBin.ioのbinにデータを保存
-let jsonbinKey = null;   // X-MASTER-KEY
-let jsonbinId = null;    // bin ID
+// ─── クラウド共有（AWS：Lambda関数URL＋DynamoDB） ───
+// 共有コード = 「関数URL::合言葉」。合言葉はx-api-tokenヘッダで送る
+let syncUrl = null;     // Lambda関数URL
+let syncToken = null;   // 合言葉
 let cloudReady = false;
 let isRemoteUpdate = false;
 let saveDebounceTimer = null;
 let pollTimer = null;
-const JSONBIN_API = 'https://api.jsonbin.io/v3/b';
 
 // ─── 接続ステータス表示 ───
 function updateConnUI(state){
@@ -548,7 +536,7 @@ function openTeamModal(){
   setModalError('');
   // cloudReadyが一時的にfalse（通信エラー中など）でも、キー自体は保持されていれば
   // 「接続済み」画面を見せる（APIキーの入力をやり直させない）
-  if(jsonbinKey && jsonbinId){ showConnectedStep(); }
+  if(syncToken && syncUrl){ showConnectedStep(); }
   else { showChooseArea(); }
   document.getElementById('team-modal').style.display='flex';
 }
@@ -563,7 +551,7 @@ function showConnectedStep(){
   document.getElementById('modal-step-connected').style.display='block';
   document.getElementById('modal-step-manual').style.display='none';
   const el=document.getElementById('share-code-display');
-  if(el) el.textContent = (jsonbinKey&&jsonbinId) ? (jsonbinKey+'::'+jsonbinId) : '-';
+  if(el) el.textContent = (syncUrl&&syncToken) ? '接続済み（…'+syncToken.slice(-4)+'）' : '-';
 }
 function showManualShare(){
   document.getElementById('modal-step-choose').style.display='none';
@@ -580,7 +568,7 @@ function setModalError(msg){
 }
 // 共有コードをコピー
 function copyShareCode(){
-  const code=(jsonbinKey&&jsonbinId)?(jsonbinKey+'::'+jsonbinId):'';
+  const code=currentShareCode();
   if(!code) return;
   navigator.clipboard.writeText(code).then(()=>{
     const btn=event.target; btn.textContent='✓ コピーしました！'; setTimeout(()=>{btn.textContent='📋 共有コードをコピー';},2000);
@@ -606,107 +594,92 @@ function importDataFromClipboard(){
   } catch(e){ alert('データの形式が正しくありません。'); }
 }
 
-// ─── JSONBin.io 新規共有作成（最初の1人） ───
-function startNewShare(){
-  const key=(document.getElementById('jsonbin-key-input').value||'').trim();
-  if(!key){ setModalError('APIキーを入力してください'); return; }
-  updateConnUI('connecting');
-  setModalError('');
-  fetch(JSONBIN_API,{
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'X-Master-Key':key, 'X-Bin-Private':'true' },
-    body: JSON.stringify(buildFullSnapshot())
-  }).then(r=>{ if(!r.ok) throw new Error('create failed'); return r.json(); })
-    .then(data=>{
-      jsonbinKey=key; jsonbinId=data.metadata.id; cloudReady=true;
-      lsSet('salesDashboard_jsonbinKey',jsonbinKey);
-      lsSet('salesDashboard_jsonbinId',jsonbinId);
-      updateConnUI('connected');
-      showConnectedStep();
-      startPolling();
-    })
-    .catch(()=>{
-      updateConnUI('error');
-      setModalError('作成に失敗しました。APIキーが正しいか確認してください。');
-    });
+// ─── 共有コードの解析 ───
+function parseShareCode(code){
+  const i=code.lastIndexOf('::');
+  if(i<1) return null;
+  const url=code.slice(0,i).trim(), token=code.slice(i+2).trim();
+  if(!/^https:\/\/[^\s]+$/.test(url)||!token) return null;
+  return {url:url.replace(/\/+$/,''), token};
 }
+function currentShareCode(){ return (syncUrl&&syncToken)?(syncUrl+'::'+syncToken):''; }
 
-// ─── JSONBin.io 共有コードで参加（2人目以降） ───
+// ─── 共有コードで接続 ───
+// クラウドが空なら、この端末のデータを初回アップロード。データがあればクラウド側を読み込む
 function joinShare(){
-  const code=(document.getElementById('jsonbin-join-input').value||'').trim();
-  const parts=code.split('::');
-  if(parts.length!==2||!parts[0]||!parts[1]){ setModalError('共有コードの形式が正しくありません'); return; }
+  const parsed=parseShareCode((document.getElementById('share-code-input').value||'').trim());
+  if(!parsed){ setModalError('共有コードの形式が正しくありません'); return; }
   updateConnUI('connecting');
   setModalError('');
-  jsonbinKey=parts[0]; jsonbinId=parts[1];
-  loadFromJsonbin((err, remote)=>{
+  syncUrl=parsed.url; syncToken=parsed.token;
+  loadFromCloud((err, remote)=>{
     if(err){
       updateConnUI('error');
       setModalError('接続失敗。共有コードが正しいか確認してください。');
-      jsonbinKey=null; jsonbinId=null; return;
+      syncUrl=null; syncToken=null; return;
     }
     cloudReady=true;
-    applyRemoteData(remote);
-    lsSet('salesDashboard_jsonbinKey',jsonbinKey);
-    lsSet('salesDashboard_jsonbinId',jsonbinId);
+    lsSet('salesDashboard_syncUrl',syncUrl);
+    lsSet('salesDashboard_syncToken',syncToken);
+    const hasRemote=remote&&remote.allData&&Object.keys(remote.allData).length>0;
+    if(hasRemote){ applyRemoteData(remote); }
+    else { pushFullToCloud(); }
     updateConnUI('connected');
     showConnectedStep();
     startPolling();
   });
 }
-function disconnectJsonbin(){
+function disconnectCloud(){
   if(!confirm('切断しますか？\nデータはこのブラウザに残ります。')) return;
   clearInterval(pollTimer);
-  jsonbinKey=null; jsonbinId=null; cloudReady=false;
-  lsSet('salesDashboard_jsonbinKey',''); lsSet('salesDashboard_jsonbinId','');
+  syncUrl=null; syncToken=null; cloudReady=false;
+  lsSet('salesDashboard_syncUrl',''); lsSet('salesDashboard_syncToken','');
   updateConnUI('unconfigured');
   closeTeamModal();
 }
 
-// ─── JSONBin.io 読み込み ───
-function loadFromJsonbin(callback){
-  if(!jsonbinKey||!jsonbinId){ callback(new Error('not configured')); return; }
-  fetch(`${JSONBIN_API}/${jsonbinId}/latest`,{ headers:{ 'X-Master-Key':jsonbinKey } })
-    .then(r=>{ if(!r.ok) throw new Error('load failed'); return r.json(); })
-    .then(data=> callback(null, data.record))
-    .catch(err=> callback(err));
+// ─── クラウド通信 ───
+function cloudFetch(method, body){
+  return fetch(syncUrl+'/',{
+    method,
+    headers: body ? {'Content-Type':'application/json','x-api-token':syncToken} : {'x-api-token':syncToken},
+    body: body ? JSON.stringify(body) : undefined
+  }).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
 }
-
-// ─── JSONBin.io 保存（現在の月のみ読み込み→マージ→書き込み。他メンバーの他月編集を上書きしない） ───
-function pushToJsonbin(){
-  if(!jsonbinKey||!jsonbinId||isRemoteUpdate) return;
-  loadFromJsonbin((err, remote)=>{
-    if(err){ showSaveStatus('error'); return; }
-    const merged = (remote && typeof remote==='object') ? remote : {};
-    merged.master = STORE_MASTER;
-    merged.allData = merged.allData || {};
-    const mk=`${currentYear}-${String(currentMonth).padStart(2,'0')}`;
-    merged.allData[mk] = allData[mk];
-    merged.lastMonth = mk;
-    fetch(`${JSONBIN_API}/${jsonbinId}`,{
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json', 'X-Master-Key':jsonbinKey },
-      body: JSON.stringify(merged)
-    }).then(r=>{ if(!r.ok) throw new Error('save failed'); showSaveStatus('saved'); })
-      .catch(()=> showSaveStatus('error'));
-  });
+function loadFromCloud(callback){
+  if(!syncUrl||!syncToken){ callback(new Error('not configured')); return; }
+  cloudFetch('GET').then(data=>callback(null,data)).catch(err=>callback(err));
+}
+// 保存：現在の月のデータだけを送る（1回の保存で1リクエスト。他の月は上書きしない）
+function pushToCloud(){
+  if(!syncUrl||!syncToken||isRemoteUpdate) return;
+  const mk=`${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+  cloudFetch('POST',{ allData:{[mk]:allData[mk]||{}}, master:STORE_MASTER, lastMonth:mk })
+    .then(()=>showSaveStatus('saved'))
+    .catch(()=>showSaveStatus('error'));
+}
+// 初回接続時：この端末の全データをアップロード
+function pushFullToCloud(){
+  const snap=buildFullSnapshot();
+  cloudFetch('POST',{ allData:snap.allData, master:snap.master, lastMonth:snap.lastMonth })
+    .then(()=>showSaveStatus('saved'))
+    .catch(()=>showSaveStatus('error'));
 }
 
 // ─── 同期（定期ポーリングは廃止）───
-// JSONBin.io無料プランは月10,000リクエストまでしかなく、一定間隔での自動ポーリングは
-// ブラウザを開きっぱなしにするだけで簡単に使い切ってしまう（実際に発生した）。
+// 一定間隔での自動ポーリングは、ブラウザを開きっぱなしにするだけでリクエストを大量に消費する。
 // そのため常時ポーリングはやめ、「ページを開いた時」「保存した時」「タブに戻った時
 // （最短2分間隔）」「手動で更新ボタンを押した時」の必要なタイミングだけ通信する。
 // isPoll:trueを渡し、同期時は「今見ている月」を勝手に切り替えたり
 // 編集中のデータを上書きしたりしないようにする。
-// エラーでも接続情報（jsonbinKey/jsonbinId）は保持し、次回成功時に自動復帰する。
+// エラーでも接続情報（syncToken/syncUrl）は保持し、次回成功時に自動復帰する。
 const MIN_SYNC_GAP_MS = 120000; // タブ復帰時の自動同期は最短2分間隔に制限（手動更新は常に実行）
 let lastSyncAt = 0;
 function pollOnce(force){
-  if(!jsonbinKey||!jsonbinId) return;
+  if(!syncToken||!syncUrl) return;
   if(!force && Date.now()-lastSyncAt<MIN_SYNC_GAP_MS) return;
   lastSyncAt = Date.now();
-  loadFromJsonbin((err,remote)=>{
+  loadFromCloud((err,remote)=>{
     if(!err){
       cloudReady=true; updateConnUI('connected');
       if(remote) applyRemoteData(remote,{isPoll:true});
@@ -718,11 +691,11 @@ function pollOnce(force){
 function manualSync(){ pollOnce(true); }
 // 手動同期ボタン：クリック中は「更新中…」を表示し、連打による無駄なリクエストを防ぐ
 function manualSyncClick(){
-  if(!jsonbinKey||!jsonbinId){ openTeamModal(); return; }
+  if(!syncToken||!syncUrl){ openTeamModal(); return; }
   const btn=document.getElementById('sync-btn'), lbl=document.getElementById('sync-label');
   if(btn.disabled) return;
   btn.disabled=true; lbl.textContent='⏳ 更新中…';
-  loadFromJsonbin((err,remote)=>{
+  loadFromCloud((err,remote)=>{
     if(!err){
       cloudReady=true; updateConnUI('connected');
       if(remote) applyRemoteData(remote,{isPoll:true});
@@ -742,7 +715,7 @@ function startPolling(){
 }
 
 // ─── リモートデータ適用 ───
-// 新形式（JSONBin）：{ master:[...], lastMonth:"YYYY-MM", allData:{...} }（プレーンオブジェクト）
+// 新形式（クラウド）：{ master:[...], lastMonth:"YYYY-MM", allData:{...} }（プレーンオブジェクト）
 // 旧形式（GAS/旧手動共有）：master・allDataが文字列化されている場合や、"data_YYYY-MM"キー形式にも対応
 // opts.isPoll=true（定期同期・フォーカス復帰時）は、今表示中の月のデータと表示月そのものは保護する
 function applyRemoteData(remote, opts){
@@ -780,7 +753,7 @@ function applyRemoteData(remote, opts){
 }
 
 // ─── データ構築（現在のローカル状態の完全なスナップショット） ───
-// JSONBinへの新規共有作成・手動共有（コピー/貼り付け）で使用
+// クラウドへの初回アップロード・手動共有（コピー/貼り付け）で使用
 function buildFullSnapshot(){
   return { master: STORE_MASTER, lastMonth:`${currentYear}-${String(currentMonth).padStart(2,'0')}`, allData: allData };
 }
@@ -798,12 +771,12 @@ function saveData(){
   lsSet('salesDashboard_all',JSON.stringify(allData));
   lsSet('salesDashboard_lastMonth',monthKey);
   clearTimeout(saveDebounceTimer);
-  if(cloudReady&&!isRemoteUpdate){ showSaveStatus('saving'); saveDebounceTimer=setTimeout(pushToJsonbin,700); }
+  if(cloudReady&&!isRemoteUpdate){ showSaveStatus('saving'); saveDebounceTimer=setTimeout(pushToCloud,700); }
   else { showSaveStatus(lsSet('salesDashboard_all',JSON.stringify(allData))?'saved':'error'); }
 }
 function saveMaster(){
   lsSet('salesDashboard_master',JSON.stringify(STORE_MASTER));
-  if(cloudReady&&!isRemoteUpdate){ clearTimeout(saveDebounceTimer); saveDebounceTimer=setTimeout(pushToJsonbin,700); }
+  if(cloudReady&&!isRemoteUpdate){ clearTimeout(saveDebounceTimer); saveDebounceTimer=setTimeout(pushToCloud,700); }
 }
 
 // ─── Load（初回起動） ───
@@ -816,12 +789,12 @@ function loadAllData(){
   const lm=lsGet('salesDashboard_lastMonth');
   if(lm) restoreLastMonth(lm);
   // 保存済みの共有情報があれば自動接続
-  const savedKey=lsGet('salesDashboard_jsonbinKey');
-  const savedId=lsGet('salesDashboard_jsonbinId');
+  const savedKey=lsGet('salesDashboard_syncToken');
+  const savedId=lsGet('salesDashboard_syncUrl');
   if(savedKey&&savedId){
-    jsonbinKey=savedKey; jsonbinId=savedId; updateConnUI('connecting');
-    loadFromJsonbin((err,remote)=>{
-      // 失敗してもjsonbinKey/jsonbinIdは保持する（一時的な通信エラー・レート制限などで
+    syncToken=savedKey; syncUrl=savedId; updateConnUI('connecting');
+    loadFromCloud((err,remote)=>{
+      // 失敗してもsyncToken/syncUrlは保持する（一時的な通信エラー・レート制限などで
       // 接続情報そのものを失ったように見せない）。ポーリングは開始しておき、
       // 次回の自動同期が成功すれば自動的に「同期中」に復帰する。
       if(!err){ cloudReady=true; if(remote) applyRemoteData(remote); updateConnUI('connected'); }
@@ -969,7 +942,7 @@ function changeMonth(delta){
   lsSet('salesDashboard_lastMonth', mk);
   if(cloudReady && !isRemoteUpdate){
     clearTimeout(saveDebounceTimer);
-    saveDebounceTimer=setTimeout(pushToJsonbin, 700);
+    saveDebounceTimer=setTimeout(pushToCloud, 700);
   }
   updateMonthLabel();
   rebuildAll();
