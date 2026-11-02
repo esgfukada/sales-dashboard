@@ -595,12 +595,12 @@ function importDataFromClipboard(){
 }
 
 // ─── 共有コードの解析 ───
+// LINE等からコピーした「共有コード https://…::xxxx」のような見出し付き・改行入り・全角コロン入りも受け付ける
 function parseShareCode(code){
-  const i=code.lastIndexOf('::');
-  if(i<1) return null;
-  const url=code.slice(0,i).trim(), token=code.slice(i+2).trim();
-  if(!/^https:\/\/[^\s]+$/.test(url)||!token) return null;
-  return {url:url.replace(/\/+$/,''), token};
+  const s=String(code||'').replace(/[：]/g,':').replace(/[\s​ ]+/g,'');
+  const m=s.match(/(https:\/\/[A-Za-z0-9.\-_\/]+?)::([A-Za-z0-9_-]+)/);
+  if(!m) return null;
+  return {url:m[1].replace(/\/+$/,''), token:m[2]};
 }
 function currentShareCode(){ return (syncUrl&&syncToken)?(syncUrl+'::'+syncToken):''; }
 
